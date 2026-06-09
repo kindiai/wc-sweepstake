@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>World Cup 2026 Sweepstake</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>%E2%9A%BD</text></svg>" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --ink:#0E1320; --ink-2:#161D2E; --ink-3:#1E2740; --line:#2A3450;
+    --text:#EEF1F8; --muted:#97A0B5;
+    --magenta:#FF2E74; --cyan:#1FE0C4; --gold:#F5C24B; --violet:#9B8CFF; --grey:#79839B;
+    --display:'Anton',sans-serif; --body:'Inter',system-ui,sans-serif; --mono:'Space Mono',monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--ink); color:var(--text); font-family:var(--body);
+    -webkit-font-smoothing:antialiased; line-height:1.45;
+    min-height:100vh;
+    background-image:radial-gradient(900px 500px at 50% -10%, rgba(123,92,255,.14), transparent 60%),
+                     radial-gradient(700px 400px at 110% 10%, rgba(31,224,196,.10), transparent 55%);
+  }
+  .topbar{height:4px;background:linear-gradient(90deg,var(--magenta),var(--violet),var(--cyan));}
+  .wrap{max-width:560px;margin:0 auto;padding:26px 20px 60px;}
+
+  /* hero */
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.32em;text-transform:uppercase;color:var(--magenta);margin:14px 0 8px;}
+  h1{font-family:var(--display);font-weight:400;font-size:clamp(46px,15vw,76px);line-height:.86;letter-spacing:.01em;margin:0;text-transform:uppercase;}
+  h1 .l2{color:var(--cyan);}
+  .sub{color:var(--muted);font-size:15px;margin:14px 0 0;max-width:42ch;}
+  .countchip{display:inline-flex;align-items:baseline;gap:8px;margin-top:20px;padding:8px 14px;border:1px solid var(--line);border-radius:999px;background:rgba(255,255,255,.02);}
+  .countchip b{font-family:var(--display);font-size:22px;line-height:1;}
+  .countchip span{font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);}
+
+  /* panels */
+  .panel{background:var(--ink-2);border:1px solid var(--line);border-radius:16px;padding:18px;margin-top:22px;}
+  .panel h2{font-family:var(--mono);font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);margin:0 0 14px;font-weight:700;}
+
+  /* join form */
+  .joinrow{display:flex;gap:10px;}
+  input[type=text],input[type=password]{
+    flex:1;min-width:0;background:var(--ink-3);border:1px solid var(--line);color:var(--text);
+    font-family:var(--body);font-size:16px;padding:13px 14px;border-radius:11px;outline:none;
+  }
+  input::placeholder{color:#5C6580;}
+  input:focus{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(31,224,196,.22);}
+  button{font-family:var(--body);cursor:pointer;border:none;border-radius:11px;font-weight:600;font-size:15px;padding:13px 18px;transition:transform .06s ease,filter .15s ease,background .15s ease;}
+  button:active{transform:translateY(1px);}
+  button:focus-visible{outline:3px solid var(--cyan);outline-offset:2px;}
+  .btn-primary{background:var(--magenta);color:#fff;}
+  .btn-primary:hover{filter:brightness(1.08);}
+  .btn-primary:disabled{background:var(--ink-3);color:var(--muted);cursor:not-allowed;filter:none;}
+  .btn-ghost{background:transparent;color:var(--muted);border:1px solid var(--line);}
+  .btn-ghost:hover{color:var(--text);border-color:var(--muted);}
+  .btn-block{width:100%;}
+
+  .msg{font-size:13.5px;margin-top:12px;min-height:1.2em;}
+  .msg.err{color:#FF6B8A;}
+  .msg.ok{color:var(--cyan);}
+  .youin{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--cyan);margin-top:12px;}
+
+  /* roster */
+  .hint{color:var(--muted);font-size:13.5px;margin:0 0 16px;}
+  .roster{display:flex;flex-wrap:wrap;gap:8px;}
+  .chip{display:inline-flex;align-items:center;gap:8px;background:var(--ink-3);border:1px solid var(--line);border-radius:999px;padding:7px 8px 7px 14px;font-size:14px;font-weight:500;}
+  .chip .x{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:rgba(255,255,255,.06);color:var(--muted);font-size:14px;line-height:1;cursor:pointer;border:none;}
+  .chip .x:hover{background:var(--magenta);color:#fff;}
+  .empty{color:var(--muted);font-size:14px;font-style:italic;}
+
+  /* organiser */
+  details.org{margin-top:22px;border:1px dashed var(--line);border-radius:14px;background:rgba(255,255,255,.015);}
+  details.org summary{cursor:pointer;list-style:none;padding:14px 18px;font-family:var(--mono);font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);}
+  details.org summary::-webkit-details-marker{display:none;}
+  details.org summary::after{content:"+";float:right;font-size:16px;}
+  details.org[open] summary::after{content:"\2212";}
+  .org-body{padding:0 18px 18px;}
+  .org-body .joinrow{margin-bottom:12px;}
+  .reset-line{margin-top:12px;font-size:12.5px;color:var(--muted);}
+  .reset-line button{background:none;border:none;color:var(--grey);text-decoration:underline;padding:0;font-size:12.5px;}
+  .reset-line button:hover{color:#FF6B8A;}
+
+  /* results */
+  .results-head{margin-top:8px;}
+  .fav{margin:18px 0 6px;padding:16px 18px;border-radius:16px;background:linear-gradient(180deg,rgba(245,194,75,.16),rgba(245,194,75,.04));border:1px solid rgba(245,194,75,.5);}
+  .fav .tag{font-family:var(--mono);font-size:10.5px;letter-spacing:.24em;text-transform:uppercase;color:var(--gold);}
+  .fav .who{font-family:var(--display);font-size:30px;line-height:1.02;margin-top:6px;}
+  .fav .who em{color:var(--gold);font-style:normal;}
+
+  ul.cards{list-style:none;margin:14px 0 0;padding:0;display:flex;flex-direction:column;gap:10px;}
+  li.card{
+    display:flex;align-items:center;gap:14px;background:var(--ink-2);border:1px solid var(--line);
+    border-left:4px solid var(--tier,var(--grey));border-radius:14px;padding:14px 16px;
+    opacity:0;transform:translateY(10px);
+  }
+  li.card.show{opacity:1;transform:none;transition:opacity .42s ease,transform .42s ease;}
+  li.card.is-fav{border-color:rgba(245,194,75,.55);border-left-color:var(--gold);background:linear-gradient(180deg,rgba(245,194,75,.10),transparent);}
+  .pos{font-family:var(--mono);font-size:13px;color:var(--muted);width:26px;text-align:center;flex:none;}
+  .who-team{flex:1;min-width:0;}
+  .who-team .player{font-family:var(--display);font-size:21px;line-height:1;letter-spacing:.01em;}
+  .who-team .team{font-size:14px;color:var(--text);margin-top:5px;}
+  .who-team .meta{font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:3px;letter-spacing:.04em;}
+  .tierpill{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;padding:3px 8px;border-radius:999px;color:var(--tier);background:color-mix(in srgb,var(--tier) 16%,transparent);border:1px solid color-mix(in srgb,var(--tier) 40%,transparent);white-space:nowrap;}
+  .str{font-family:var(--mono);font-size:12px;color:var(--muted);text-align:right;flex:none;}
+  .str b{display:block;font-size:19px;color:var(--text);font-weight:700;}
+  .spoon{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--grey);margin-top:4px;}
+  .lastres{font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:4px;letter-spacing:.02em;}
+  .badge{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;padding:3px 8px;border-radius:999px;white-space:nowrap;border:1px solid transparent;}
+  .badge-in{color:var(--cyan);background:color-mix(in srgb,var(--cyan) 14%,transparent);border-color:color-mix(in srgb,var(--cyan) 38%,transparent);}
+  .badge-out{color:var(--grey);background:rgba(121,131,155,.12);border-color:rgba(121,131,155,.3);}
+  .badge-champ{color:#1B1300;background:var(--gold);font-weight:700;}
+  li.card.is-out{opacity:.62;}
+  li.card.is-out .player{color:var(--muted);}
+  .satout{color:var(--muted);font-size:13px;margin-top:18px;text-align:center;}
+  .liveline{text-align:center;font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;color:#5C6580;margin-top:10px;}
+  .liveline .dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--cyan);margin-right:6px;vertical-align:middle;}
+
+  .footer{margin-top:34px;text-align:center;color:#566073;font-size:11px;font-family:var(--mono);letter-spacing:.08em;}
+  .hide{display:none !important;}
+
+  @media (prefers-reduced-motion: reduce){
+    li.card{opacity:1;transform:none;}
+    button:active{transform:none;}
+  }
+</style>
+</head>
+<body>
+  <div class="topbar"></div>
+  <div class="wrap">
+    <header>
+      <div class="eyebrow">USA &middot; Canada &middot; Mexico &middot; 2026</div>
+      <h1>The<br /><span class="l2">Sweepstake</span></h1>
+      <p class="sub" id="heroSub">Add your name. When everyone's in, the organiser draws the teams - the strongest go out one each, top of the pile first.</p>
+      <div class="countchip"><b id="countN">0</b><span id="countLabel">in so far</span></div>
+    </header>
+
+    <!-- LOBBY -->
+    <section id="lobby">
+      <div class="panel">
+        <h2>Get in the draw</h2>
+        <div class="joinrow">
+          <input type="text" id="nameInput" maxlength="40" placeholder="Your name" autocomplete="off" />
+          <button class="btn-primary" id="joinBtn">Join</button>
+        </div>
+        <div class="msg" id="joinMsg"></div>
+        <div class="youin hide" id="youIn"></div>
+      </div>
+
+      <div class="panel">
+        <h2>Who's in</h2>
+        <p class="hint" id="rosterHint">Names appear here as people join.</p>
+        <div class="roster" id="roster"><span class="empty">No one's in yet. Be the first.</span></div>
+      </div>
+
+      <details class="org">
+        <summary>Organiser</summary>
+        <div class="org-body">
+          <p class="hint">Enter the organiser PIN, then draw once everyone's in. Drawing closes the list.</p>
+          <div class="joinrow">
+            <input type="password" id="pinInput" placeholder="Organiser PIN" autocomplete="off" />
+          </div>
+          <button class="btn-primary btn-block" id="drawBtn">Draw the teams</button>
+          <div class="msg" id="orgMsg"></div>
+          <div class="reset-line">Need to start over? <button id="resetBtn">Reset everything</button></div>
+        </div>
+      </details>
+    </section>
+
+    <!-- RESULTS -->
+    <section id="results" class="hide">
+      <div class="results-head">
+        <div class="fav" id="favBox"></div>
+      </div>
+      <ul class="cards" id="cards"></ul>
+      <p class="satout" id="satOut"></p>
+      <p class="liveline hide" id="liveLine"></p>
+
+      <details class="org">
+        <summary>Organiser</summary>
+        <div class="org-body">
+          <div class="joinrow">
+            <input type="password" id="pinInput2" placeholder="Organiser PIN" autocomplete="off" />
+          </div>
+          <div class="reset-line">Run it again? <button id="resetBtn2">Reset everything</button></div>
+          <div class="msg" id="orgMsg2"></div>
+        </div>
+      </details>
+    </section>
+
+    <div class="footer">World Cup 2026 sweepstake &middot; just for fun</div>
+  </div>
+
+<script>
+const TIER_COLOUR = {
+  "Contender":"var(--gold)", "Dark horse":"var(--cyan)",
+  "Outsider":"var(--violet)", "Long shot":"var(--grey)"
+};
+const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+let revealed = false;        // have we played the reveal this session
+let myName = localStorage.getItem("wc_name") || "";
+
+const $ = (id) => document.getElementById(id);
+
+async function api(path, body){
+  const opt = { method: body ? "POST" : "GET", headers:{"Content-Type":"application/json"} };
+  if (body) opt.body = JSON.stringify(body);
+  const res = await fetch(path, opt);
+  let data = {};
+  try { data = await res.json(); } catch(e){}
+  if (!res.ok) throw new Error(data.detail || "Something went wrong.");
+  return data;
+}
+
+function setMsg(el, text, kind){
+  el.textContent = text || "";
+  el.className = "msg" + (kind ? " " + kind : "");
+}
+
+function renderLobby(s){
+  $("countN").textContent = s.count;
+  $("countLabel").textContent = s.count === 1 ? "in so far" : "in so far";
+  $("lobby").classList.remove("hide");
+  $("results").classList.add("hide");
+
+  const roster = $("roster");
+  roster.innerHTML = "";
+  if (s.players.length === 0){
+    const e = document.createElement("span");
+    e.className = "empty";
+    e.textContent = "No one's in yet. Be the first.";
+    roster.appendChild(e);
+  } else {
+    s.players.forEach(name => {
+      const chip = document.createElement("span");
+      chip.className = "chip";
+      const label = document.createElement("span");
+      label.textContent = name;                 // textContent = safe against HTML
+      chip.appendChild(label);
+      const x = document.createElement("button");
+      x.className = "x"; x.setAttribute("aria-label", "Remove " + name);
+      x.textContent = "\u00d7";
+      x.onclick = () => removePlayer(name);
+      chip.appendChild(x);
+      roster.appendChild(chip);
+    });
+  }
+  $("rosterHint").textContent = s.count === 0
+    ? "Names appear here as people join."
+    : s.count + (s.count === 1 ? " name in. " : " names in. ") + "Share the link to get more.";
+
+  if (myName){
+    $("youIn").classList.remove("hide");
+    $("youIn").textContent = "You're in as " + myName;
+  } else {
+    $("youIn").classList.add("hide");
+  }
+}
+
+function renderResults(s){
+  $("lobby").classList.add("hide");
+  $("results").classList.remove("hide");
+  const r = s.results;
+  if (!r.length) return;
+
+  // headline: winner if decided, leader once started, otherwise pre-tournament favourite
+  const top = r[0];
+  $("favBox").innerHTML = "";
+  const tag = document.createElement("div"); tag.className = "tag";
+  tag.textContent = top.live === "champion" ? "Winner" : (s.started ? "Leader" : "Favourite");
+  const who = document.createElement("div"); who.className = "who";
+  const em = document.createElement("em"); em.textContent = top.player;
+  who.appendChild(em);
+  let line;
+  if (top.live === "champion") line = " \u00b7 " + top.team + " \u00b7 Champions!";
+  else if (s.started && top.stage) line = " \u00b7 " + top.team + " \u00b7 " + top.stage;
+  else line = " drew " + top.team;
+  who.appendChild(document.createTextNode(line));
+  $("favBox").appendChild(tag); $("favBox").appendChild(who);
+
+  const list = $("cards");
+  list.innerHTML = "";
+  const items = [];
+  r.forEach((row, i) => {
+    const li = document.createElement("li");
+    li.className = "card" + (i === 0 ? " is-fav" : "") + (row.live === "out" && i !== 0 ? " is-out" : "");
+    li.style.setProperty("--tier", TIER_COLOUR[row.tier] || "var(--grey)");
+
+    const pos = document.createElement("div"); pos.className = "pos"; pos.textContent = i + 1;
+
+    const mid = document.createElement("div"); mid.className = "who-team";
+    const player = document.createElement("div"); player.className = "player"; player.textContent = row.player;
+    const team = document.createElement("div"); team.className = "team"; team.textContent = row.team;
+    const meta = document.createElement("div"); meta.className = "meta";
+    meta.textContent = "Group " + row.group + " \u00b7 " + row.conf + (row.status ? " \u00b7 " + row.status : "");
+    mid.appendChild(player); mid.appendChild(team); mid.appendChild(meta);
+    if (row.last){
+      const lr = document.createElement("div"); lr.className = "lastres"; lr.textContent = row.last;
+      mid.appendChild(lr);
+    }
+    if (!s.started && i === r.length - 1 && r.length > 1){
+      const sp = document.createElement("div"); sp.className = "spoon"; sp.textContent = "Wooden spoon watch";
+      mid.appendChild(sp);
+    }
+
+    const right = document.createElement("div"); right.style.display="flex"; right.style.flexDirection="column"; right.style.alignItems="flex-end"; right.style.gap="8px"; right.style.flex="none";
+    if (row.live){
+      const map = {in:["badge badge-in","Still in"], out:["badge badge-out","Out"], champion:["badge badge-champ","Champion"]};
+      const m = map[row.live];
+      if (m){ const badge = document.createElement("div"); badge.className = m[0]; badge.textContent = m[1]; right.appendChild(badge); }
+    }
+    const pill = document.createElement("div"); pill.className = "tierpill"; pill.style.setProperty("--tier", TIER_COLOUR[row.tier] || "var(--grey)"); pill.textContent = row.tier;
+    const str = document.createElement("div"); str.className = "str";
+    const strN = document.createElement("b"); strN.textContent = row.strength;
+    str.appendChild(strN); str.appendChild(document.createTextNode("strength"));
+    right.appendChild(pill); right.appendChild(str);
+
+    li.appendChild(pos); li.appendChild(mid); li.appendChild(right);
+    list.appendChild(li);
+    items.push(li);
+  });
+
+  const benched = s.totalTeams - r.length;
+  $("satOut").textContent = benched > 0
+    ? benched + (benched === 1 ? " team sat this one out." : " teams sat this one out.")
+    : "All teams in play.";
+
+  const ll = $("liveLine");
+  if (s.started && s.liveUpdated){
+    const t = new Date(s.liveUpdated * 1000).toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"});
+    ll.innerHTML = "";
+    const dot = document.createElement("span"); dot.className = "dot"; ll.appendChild(dot);
+    ll.appendChild(document.createTextNode("Live \u00b7 updated " + t + " \u00b7 refreshes about every 15 min"));
+    ll.classList.remove("hide");
+  } else {
+    ll.classList.add("hide");
+  }
+
+  // staggered reveal: weakest first, favourite lands last
+  if (revealed || reduceMotion){
+    items.forEach(li => li.classList.add("show"));
+  } else {
+    revealed = true;
+    const orderLast = items.slice().reverse(); // bottom (weakest) -> top (favourite)
+    orderLast.forEach((li, k) => setTimeout(() => li.classList.add("show"), 140 + k * 130));
+  }
+}
+
+function render(s){
+  if (s.drawn && s.results.length) renderResults(s);
+  else renderLobby(s);
+}
+
+async function refresh(){
+  try { render(await api("/api/state")); } catch(e){ /* keep last view */ }
+}
+
+async function joinNow(){
+  const input = $("nameInput");
+  const name = input.value.trim();
+  if (!name){ setMsg($("joinMsg"), "Add a name first.", "err"); return; }
+  $("joinBtn").disabled = true;
+  try {
+    const s = await api("/api/join", { name });
+    myName = name; localStorage.setItem("wc_name", name);
+    input.value = "";
+    setMsg($("joinMsg"), "You're in!", "ok");
+    render(s);
+  } catch(e){
+    setMsg($("joinMsg"), e.message, "err");
+  } finally {
+    $("joinBtn").disabled = false;
+  }
+}
+
+async function removePlayer(name){
+  try {
+    const s = await api("/api/leave", { name });
+    if (myName && name.toLowerCase() === myName.toLowerCase()){
+      myName = ""; localStorage.removeItem("wc_name");
+    }
+    render(s);
+  } catch(e){ setMsg($("joinMsg"), e.message, "err"); }
+}
+
+async function drawNow(){
+  const pin = $("pinInput").value.trim();
+  if (!pin){ setMsg($("orgMsg"), "Enter the organiser PIN.", "err"); return; }
+  if (!confirm("Lock in the draw? The list closes and this can't be undone without a reset.")) return;
+  $("drawBtn").disabled = true;
+  try {
+    const s = await api("/api/draw", { pin });
+    setMsg($("orgMsg"), "", "");
+    render(s);
+  } catch(e){
+    setMsg($("orgMsg"), e.message, "err");
+  } finally {
+    $("drawBtn").disabled = false;
+  }
+}
+
+async function resetNow(pinId, msgId){
+  const pin = $(pinId).value.trim();
+  if (!pin){ setMsg($(msgId), "Enter the organiser PIN to reset.", "err"); return; }
+  if (!confirm("Reset everything? This clears all names and the draw.")) return;
+  try {
+    revealed = false;
+    const s = await api("/api/reset", { pin });
+    setMsg($(msgId), "", "");
+    render(s);
+  } catch(e){ setMsg($(msgId), e.message, "err"); }
+}
+
+$("joinBtn").onclick = joinNow;
+$("nameInput").addEventListener("keydown", e => { if (e.key === "Enter") joinNow(); });
+$("drawBtn").onclick = drawNow;
+$("resetBtn").onclick = () => resetNow("pinInput", "orgMsg");
+$("resetBtn2").onclick = () => resetNow("pinInput2", "orgMsg2");
+
+refresh();
+setInterval(refresh, 3000);   // light polling so every phone stays in sync
+</script>
+</body>
+</html>
