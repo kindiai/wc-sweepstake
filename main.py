@@ -10,9 +10,9 @@ State is stored in Supabase (Postgres). Live scores come from API-Football and
 are cached server-side so we stay inside the free 100-requests-a-day limit.
 
 Environment variables (set these where you deploy):
-  DATABASE_URL       Supabase connection string (Session pooler, URI form)
-  API_FOOTBALL_KEY   your API-Football key (optional - no key = no live scores)
-  ORGANISER_PIN      the PIN that unlocks Draw/Reset (default: 1966)
+  DATABASE_URL         Supabase connection string (Session pooler, URI form)
+  FOOTBALL_DATA_TOKEN  your football-data.org token (no token = no live scores)
+  ORGANISER_PIN        the PIN that unlocks Draw/Reset (default: 1966)
 """
 import json
 import os
@@ -33,14 +33,21 @@ BASE = Path(__file__).parent
 TEAMS = json.loads((BASE / "teams.json").read_text(encoding="utf-8"))
 
 DATABASE_URL = os.environ.get("DATABASE_URL", "")
-API_KEY = os.environ.get("API_FOOTBALL_KEY", "")
+FD_TOKEN = os.environ.get("FOOTBALL_DATA_TOKEN", "")
 ORGANISER_PIN = os.environ.get("ORGANISER_PIN", "1966")
 MAX_NAME = 40
 
-API_BASE = "https://v3.football.api-sports.io"
-LEAGUE_ID = 1          # FIFA World Cup
-SEASON = 2026
-LIVE_TTL = 900         # seconds between live-score refreshes (15 min -> well under 100/day)
+API_BASE = "https://api.football-data.org/v4"
+COMPETITION = "WC"     # FIFA World Cup
+LIVE_TTL = 900         # seconds between live refreshes (free tier is 10/min - we use ~1 per 15 min)
+
+# Mini-league scoring (applied per match, to each player's team)
+PTS_GOAL = 1
+PTS_CONCEDE = -1
+PTS_CLEAN_SHEET = 1
+PTS_WIN = 3
+PTS_DRAW = 1
+KO_MULTIPLIER = 2      # points double from the Round of 32 onwards
 
 app = FastAPI(title="World Cup 2026 Sweepstake")
 
@@ -50,7 +57,7 @@ def strength(rank: int) -> int:
 
 
 # ----------------------------------------------------------------------------
-# Name matching: API-Football names -> our team names
+# Name matching: football-data.org names -> our team names
 # ----------------------------------------------------------------------------
 def normalise(name: str) -> str:
     n = unicodedata.normalize("NFKD", name or "")
@@ -61,19 +68,29 @@ def normalise(name: str) -> str:
 
 MY_NORM = {normalise(t["team"]): t["team"] for t in TEAMS}
 
-# common API-Football spellings -> our normalised name
+# football-data.org / common spellings -> our normalised name.
+# Kept deliberately broad; harmless extra entries, and easy to extend if a
+# team shows up unmatched after go-live.
 ALIASES = {
     "united states": "usa",
+    "united states of america": "usa",
     "korea republic": "south korea",
+    "republic of korea": "south korea",
     "ir iran": "iran",
+    "iran islamic republic": "iran",
     "turkey": "turkiye",
     "czech republic": "czechia",
     "cote divoire": "ivory coast",
+    "ivory coast": "ivory coast",
     "cabo verde": "cape verde",
     "cape verde islands": "cape verde",
     "congo dr": "dr congo",
+    "dr congo": "dr congo",
     "democratic republic of the congo": "dr congo",
+    "democratic republic of congo": "dr congo",
     "bosnia herzegovina": "bosnia and herzegovina",
+    "bosniaherzegovina": "bosnia and herzegovina",
+    "curacao": "curacao",
 }
 
 
@@ -85,79 +102,111 @@ def display_for(api_name: str):
 
 STAGE_LABEL = {1: "Group stage", 2: "Round of 32", 3: "Round of 16",
                4: "Quarter-finals", 5: "Semi-finals", 6: "Final", 7: "Champion"}
-FINISHED = {"FT", "AET", "PEN", "WO", "AWD"}
+FINISHED = {"FINISHED", "AWARDED"}
+UPCOMING = {"SCHEDULED", "TIMED", "IN_PLAY", "PAUSED"}
 
 
-def stage_rank(round_str: str) -> int:
-    s = (round_str or "").lower()
-    if "group" in s:
+def stage_rank(stage: str) -> int:
+    s = (stage or "").upper()
+    if "GROUP" in s:
         return 1
-    if "32" in s:
+    if "LAST_32" in s or "ROUND_OF_32" in s:
         return 2
-    if "16" in s:
+    if "LAST_16" in s or "ROUND_OF_16" in s:
         return 3
-    if "quarter" in s:
+    if "QUARTER" in s:
         return 4
-    if "semi" in s:
+    if "SEMI" in s:
         return 5
-    if "3rd" in s or "third" in s or "place" in s:
+    if "THIRD" in s or "3RD" in s:
         return 5          # third-place match = reached the semis
-    if "final" in s:
+    if "FINAL" in s:
         return 6
     return 1
 
 
-def compute_live(fixtures):
-    """Pure function: API-Football fixtures -> per-team status. Returns
+def compute_live(matches):
+    """Pure function: football-data.org matches -> per-team state. Returns
     (teams_data, started). teams_data maps our team name -> dict with
-    live ('in'/'out'/'champion'), stage_rank, stage label, and last result."""
+    live ('in'/'out'/'champion'), stage_rank, stage label, last result,
+    league points, and next fixture."""
     data = {}
     group_unfinished = False
     any_knockout = False
     started = False
 
-    for fx in fixtures:
-        rnd = (fx.get("league") or {}).get("round", "")
-        rank = stage_rank(rnd)
+    for m in matches:
+        rank = stage_rank(m.get("stage", ""))
         if rank >= 2:
             any_knockout = True
-        teams = fx.get("teams") or {}
-        goals = fx.get("goals") or {}
-        st = ((fx.get("fixture") or {}).get("status") or {}).get("short", "")
-        finished = st in FINISHED
+        status = m.get("status", "")
+        finished = status in FINISHED
         if finished:
             started = True
-        date = (fx.get("fixture") or {}).get("date", "")
+        date = m.get("utcDate", "")
+        home = m.get("homeTeam") or {}
+        away = m.get("awayTeam") or {}
+        score = m.get("score") or {}
+        ft = score.get("fullTime") or {}
+        winner = score.get("winner")          # HOME_TEAM / AWAY_TEAM / DRAW / None
+        hg, ag = ft.get("home"), ft.get("away")
 
         sides = [
-            (teams.get("home") or {}, teams.get("away") or {}, goals.get("home"), goals.get("away")),
-            (teams.get("away") or {}, teams.get("home") or {}, goals.get("away"), goals.get("home")),
+            (home, away, hg, ag, "HOME_TEAM"),
+            (away, home, ag, hg, "AWAY_TEAM"),
         ]
-        for me, opp, gf, ga in sides:
+        for me, opp, gf, ga, side in sides:
             name = display_for(me.get("name", ""))
             if not name:
                 continue
-            info = data.setdefault(name, {"stage_rank": 1, "eliminated": False,
-                                          "champion": False, "last": None, "last_date": ""})
+            info = data.setdefault(name, {
+                "stage_rank": 1, "eliminated": False, "champion": False,
+                "last": None, "last_date": "", "points": 0,
+                "next": None, "next_date": "",
+            })
             if rank > info["stage_rank"]:
                 info["stage_rank"] = rank
-            if not finished and rank == 1:
-                group_unfinished = True
-            if finished:
-                win = me.get("winner")
+
+            if finished and gf is not None and ga is not None:
+                if winner == side:
+                    result = "win"
+                elif winner == "DRAW":
+                    result = "draw"
+                elif winner in ("HOME_TEAM", "AWAY_TEAM"):
+                    result = "loss"
+                else:                          # no winner field - fall back to goals
+                    result = "win" if gf > ga else ("draw" if gf == ga else "loss")
+
+                pts = gf * PTS_GOAL + ga * PTS_CONCEDE
+                if ga == 0:
+                    pts += PTS_CLEAN_SHEET
+                if result == "win":
+                    pts += PTS_WIN
+                elif result == "draw":
+                    pts += PTS_DRAW
+                if rank >= 2:                  # knockout multiplier
+                    pts *= KO_MULTIPLIER
+                info["points"] += pts
+
                 opp_name = display_for(opp.get("name", "")) or opp.get("name", "?")
-                if gf is not None and ga is not None:
-                    verb = "beat" if win is True else ("lost to" if win is False else "drew with")
-                    text = f"{verb} {opp_name} {gf}-{ga}"
-                else:
-                    text = None
-                if date > info["last_date"]:
+                verb = {"win": "beat", "draw": "drew with", "loss": "lost to"}[result]
+                if date >= info["last_date"]:
                     info["last_date"] = date
-                    info["last"] = text
-                if rank >= 2 and win is False:
+                    info["last"] = f"{verb} {opp_name} {gf}-{ga}"
+
+                if rank >= 2 and result == "loss":
                     info["eliminated"] = True
-                if rank == 6 and win is True:
+                if rank == 6 and result == "win":
                     info["champion"] = True
+            else:
+                if rank == 1 and status in UPCOMING:
+                    group_unfinished = True
+                if status in UPCOMING:
+                    opp_name = display_for(opp.get("name", "")) or opp.get("name", "?")
+                    if not info["next_date"] or date < info["next_date"]:
+                        info["next_date"] = date
+                        info["next"] = {"opp": opp_name, "utc": date,
+                                        "live": status in ("IN_PLAY", "PAUSED")}
 
     groups_done = not group_unfinished
     out = {}
@@ -175,6 +224,8 @@ def compute_live(fixtures):
             "stage_rank": info["stage_rank"],
             "stage": STAGE_LABEL[min(info["stage_rank"], 7)],
             "last": info["last"],
+            "points": info["points"],
+            "next": None if status in ("out", "champion") else info["next"],
         }
     return out, started
 
@@ -186,24 +237,21 @@ _live = {"at": 0.0, "data": {}, "started": False, "error": None, "fetched": Fals
 
 
 def get_live():
-    if not API_KEY:
+    if not FD_TOKEN:
         return {"data": {}, "started": False, "updated": None, "error": "no_key"}
     now = time.time()
     if _live["fetched"] and now - _live["at"] < LIVE_TTL:
         return {"data": _live["data"], "started": _live["started"],
                 "updated": _live["at"], "error": _live["error"]}
     try:
-        r = httpx.get(f"{API_BASE}/fixtures",
-                      params={"league": LEAGUE_ID, "season": SEASON},
-                      headers={"x-apisports-key": API_KEY}, timeout=12)
-        payload = r.json()
-        errs = payload.get("errors")
-        has_err = bool(errs) and (errs if isinstance(errs, list) else list(errs.values()))
-        if r.status_code != 200 or has_err:
+        r = httpx.get(f"{API_BASE}/competitions/{COMPETITION}/matches",
+                      headers={"X-Auth-Token": FD_TOKEN}, timeout=15)
+        if r.status_code != 200:
             _live["error"] = "api_error"
             _live["at"] = now            # back off; don't hammer the API on errors
         else:
-            data, started = compute_live(payload.get("response", []))
+            payload = r.json()
+            data, started = compute_live(payload.get("matches", []))
             _live.update({"data": data, "started": started, "error": None,
                           "at": now, "fetched": True})
     except Exception:
@@ -271,13 +319,16 @@ def build_state():
             row["live"] = info["live"]
             row["stage"] = info["stage"]
             row["last"] = info["last"]
+            row["points"] = info["points"]
+            row["next"] = info["next"]
+        else:
+            row["points"] = 0
+            row["next"] = None
 
     if results and started and ld:
         def key(r):
             info = ld.get(r["team"], {})
-            rank = info.get("stage_rank", 1)
-            prio = {"champion": 2, "in": 1, "out": 0}.get(info.get("live"), 1)
-            return (rank, prio, r["strength"])
+            return (r.get("points", 0), info.get("stage_rank", 1), r["strength"])
         results = sorted(results, key=key, reverse=True)
     else:
         results = sorted(results, key=lambda r: -r["strength"])
