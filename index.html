@@ -125,15 +125,20 @@
     li.card{opacity:1;transform:none;}
     button:active{transform:none;}
   }
-  .leaguebar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:14px 0 2px;flex-wrap:wrap;}
-  .sharebtn{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--cyan);background:color-mix(in srgb,var(--cyan) 12%,transparent);border:1px solid color-mix(in srgb,var(--cyan) 38%,transparent);border-radius:999px;padding:9px 15px;cursor:pointer;}
-  .sharebtn:active{transform:scale(.97);}
-  details.rules{font-family:var(--mono);font-size:11px;color:var(--muted);}
-  details.rules summary{cursor:pointer;letter-spacing:.06em;list-style:none;}
-  details.rules summary::-webkit-details-marker{display:none;}
-  details.rules summary::before{content:"\002b  ";opacity:.7;}
-  details.rules[open] summary::before{content:"\2212  ";}
-  details.rules p{margin:8px 0 0;line-height:1.55;color:var(--muted);max-width:330px;}
+  /* league bar: share + scoring key */
+  .leaguebar{margin:16px 0 6px;}
+  .sharebtn{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--cyan);background:color-mix(in srgb,var(--cyan) 12%,transparent);border:1px solid color-mix(in srgb,var(--cyan) 42%,transparent);border-radius:999px;padding:10px 16px;cursor:pointer;}
+  .sharebtn:hover{background:color-mix(in srgb,var(--cyan) 18%,transparent);}
+  .sharebtn:active{transform:scale(.98);}
+  .scoring{margin-top:16px;}
+  .scoring .skey{font-family:var(--mono);font-size:10px;letter-spacing:.24em;text-transform:uppercase;color:var(--muted);margin:0 0 10px;}
+  .pills{display:flex;flex-wrap:wrap;gap:7px;}
+  .spill{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:11.5px;padding:6px 11px;border-radius:9px;background:var(--ink-2);border:1px solid var(--line);color:var(--muted);}
+  .spill b{font-weight:700;font-size:12.5px;}
+  .spill.pos b{color:var(--cyan);}
+  .spill.neg b{color:var(--magenta);}
+  .spill.mult b{color:var(--violet);}
+  .scoring .note{font-family:var(--mono);font-size:10.5px;color:var(--grey);margin:10px 0 0;letter-spacing:.03em;}
   .nextfix{font-family:var(--mono);font-size:11px;color:var(--cyan);margin-top:4px;letter-spacing:.02em;opacity:.82;}
 </style>
 </head>
@@ -143,7 +148,7 @@
     <header>
       <div class="eyebrow">USA &middot; Canada &middot; Mexico &middot; 2026</div>
       <h1>The<br /><span class="l2">Sweepstake</span></h1>
-      <p class="sub" id="heroSub">Add your name. When everyone's in, the organiser draws the teams - the strongest go out one each, top of the pile first.</p>
+      <p class="sub" id="heroSub">Teams are drawn. Your team earns points as it plays - most points wins.</p>
       <div class="countchip"><b id="countN">0</b><span id="countLabel">in so far</span></div>
     </header>
 
@@ -186,9 +191,18 @@
       </div>
       <div class="leaguebar">
         <button id="shareBtn" class="sharebtn" type="button">Share my standing</button>
-        <details class="rules"><summary>How points work</summary>
-          <p>Each player scores from their team's games: goal +1, conceded -1, clean sheet +1, win +3, draw +1. Points double from the Round of 32. Most points wins.</p>
-        </details>
+        <div class="scoring">
+          <p class="skey">How points work</p>
+          <div class="pills">
+            <span class="spill pos">Goal <b>+1</b></span>
+            <span class="spill neg">Conceded <b>&minus;1</b></span>
+            <span class="spill pos">Clean sheet <b>+1</b></span>
+            <span class="spill pos">Win <b>+3</b></span>
+            <span class="spill pos">Draw <b>+1</b></span>
+            <span class="spill mult">Knockouts <b>&times;2</b></span>
+          </div>
+          <p class="note">All points double from the Round of 32 onwards. Most points wins.</p>
+        </div>
       </div>
       <ul class="cards" id="cards"></ul>
       <p class="satout" id="satOut"></p>
@@ -236,8 +250,9 @@ function setMsg(el, text, kind){
 }
 
 function renderLobby(s){
+  $("heroSub").textContent = "Add your name. When everyone's in, the organiser draws the teams - strongest go out one each.";
   $("countN").textContent = s.count;
-  $("countLabel").textContent = s.count === 1 ? "in so far" : "in so far";
+  $("countLabel").textContent = "in so far";
   $("lobby").classList.remove("hide");
   $("results").classList.add("hide");
 
@@ -281,6 +296,11 @@ function renderResults(s){
   const r = s.results;
   if (!r.length) return;
   $("shareBtn").onclick = () => shareStanding(s);
+
+  $("heroSub").textContent = "Teams are drawn. Your team earns points as it plays - most points wins.";
+  const stillIn = r.filter(x => x.live !== "out").length;
+  $("countN").textContent = stillIn;
+  $("countLabel").textContent = "still in";
 
   // headline: winner if decided, leader once started, otherwise pre-tournament favourite
   const top = r[0];
@@ -361,7 +381,7 @@ function renderResults(s){
     const t = new Date(s.liveUpdated * 1000).toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"});
     ll.innerHTML = "";
     const dot = document.createElement("span"); dot.className = "dot"; ll.appendChild(dot);
-    ll.appendChild(document.createTextNode("Live \u00b7 updated " + t + " \u00b7 refreshes about every 15 min"));
+    ll.appendChild(document.createTextNode("Live \u00b7 updated " + t + " \u00b7 updates every 15 min"));
     ll.classList.remove("hide");
   } else {
     ll.classList.add("hide");
