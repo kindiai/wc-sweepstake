@@ -426,11 +426,11 @@ PERSONAS = {
         "draw": ["A draw's worth a pint too, in fairness."],
     },
     "pete": {
-        "win":  ["Peetu celebrates with a lamb feast and zero showers.",
-                 "Peetu's buzzing - still not showering though."],
-        "loss": ["Peetu consoles himself with more lamb. Shower remains off the table.",
-                 "Gutted, but there's always lamb."],
-        "draw": ["Peetu shrugs and reaches for the lamb."],
+        "win":  ["He's celebrating with a brew - the badminton rackets are safe today.",
+                 "A good day for the United fan. Kettle's on."],
+        "loss": ["Somewhere a badminton racket is in pieces. Tea to recover.",
+                 "Pete's raging - mind the rackets. Stick the kettle on."],
+        "draw": ["Pete shrugs and puts the kettle on. Rackets intact."],
     },
     "sana d": {
         "win":  ["The undercover fed's cover holds another day.",
