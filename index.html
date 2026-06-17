@@ -110,6 +110,7 @@
   .tierpill{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;padding:3px 8px;border-radius:999px;color:var(--tier);background:color-mix(in srgb,var(--tier) 16%,transparent);border:1px solid color-mix(in srgb,var(--tier) 40%,transparent);white-space:nowrap;}
   .str{font-family:var(--mono);font-size:12px;color:var(--muted);text-align:right;flex:none;}
   .str b{display:block;font-size:23px;color:var(--text);font-weight:700;line-height:1;}
+  li.card.is-fav .str b{color:var(--gold);}
   .spoon{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--grey);margin-top:4px;}
   .lastres{font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:4px;letter-spacing:.02em;}
   .badge{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;padding:3px 8px;border-radius:999px;white-space:nowrap;border:1px solid transparent;}
@@ -141,12 +142,12 @@
   .sharebtn:active{transform:scale(.98);}
   .scoring{margin-top:16px;}
   .scoring .skey{font-family:var(--mono);font-size:10px;letter-spacing:.24em;text-transform:uppercase;color:var(--muted);margin:0 0 10px;}
-  .pills{display:flex;flex-wrap:wrap;gap:7px;}
-  .spill{flex:none;white-space:nowrap;display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:11.5px;padding:7px 11px;border-radius:9px;background:var(--ink-3);border:1px solid var(--line);color:var(--muted);}
-  .spill b{font-weight:700;font-size:12.5px;}
-  .spill.pos b{color:var(--cyan);}
-  .spill.neg b{color:var(--magenta);}
-  .spill.mult b{color:var(--violet);}
+  .scoreline{font-family:var(--mono);font-size:12px;color:var(--muted);line-height:2;margin:0;}
+  .scoreline b{font-weight:700;}
+  .scoreline .v-plus{color:var(--cyan);}
+  .scoreline .v-minus{color:var(--magenta);}
+  .scoreline .v-mult{color:var(--violet);}
+  .scoreline .sep{color:var(--line);}
   .scoring .note{font-family:var(--mono);font-size:10.5px;color:var(--grey);margin:10px 0 0;letter-spacing:.03em;}
   .nextfix{font-family:var(--mono);font-size:11px;color:var(--cyan);margin-top:4px;letter-spacing:.02em;opacity:.82;}
 </style>
@@ -202,14 +203,7 @@
         <button id="shareBtn" class="sharebtn" type="button">Share my standing</button>
         <div class="scoring">
           <p class="skey">How points work</p>
-          <div class="pills">
-            <span class="spill pos">Goal <b>+1</b></span>
-            <span class="spill neg">Conceded <b>&minus;1</b></span>
-            <span class="spill pos">Clean sheet <b>+1</b></span>
-            <span class="spill pos">Win <b>+3</b></span>
-            <span class="spill pos">Draw <b>+1</b></span>
-            <span class="spill mult">Knockouts <b>&times;2</b></span>
-          </div>
+          <p class="scoreline">Goal <b class="v-plus">+1</b> <span class="sep">·</span> Conceded <b class="v-minus">&minus;1</b> <span class="sep">·</span> Clean sheet <b class="v-plus">+1</b> <span class="sep">·</span> Win <b class="v-plus">+3</b> <span class="sep">·</span> Draw <b class="v-plus">+1</b> <span class="sep">·</span> Knockouts <b class="v-mult">&times;2</b></p>
           <p class="note">All points double from the Round of 32 onwards. Most points wins.</p>
         </div>
       </div>
