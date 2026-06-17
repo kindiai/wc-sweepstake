@@ -150,6 +150,40 @@
   .scoreline .sep{color:var(--line);}
   .scoring .note{font-family:var(--mono);font-size:10.5px;color:var(--grey);margin:10px 0 0;letter-spacing:.03em;}
   .nextfix{font-family:var(--mono);font-size:11px;color:var(--cyan);margin-top:4px;letter-spacing:.02em;opacity:.82;}
+  li.card{cursor:pointer;}
+  .taphint{font-family:var(--mono);font-size:10.5px;color:var(--muted);letter-spacing:.06em;margin:18px 0 0;opacity:.72;}
+
+  /* team page */
+  .tv-back{display:inline-flex;align-items:center;gap:6px;background:none;border:none;color:var(--muted);font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;padding:0;cursor:pointer;margin-bottom:22px;}
+  .tv-back:hover{color:var(--text);}
+  .tv-head{display:flex;align-items:center;gap:16px;}
+  .tv-crest{width:58px;height:58px;border-radius:13px;object-fit:contain;background:rgba(255,255,255,.05);padding:7px;flex:none;}
+  .tv-name{font-family:var(--display);font-size:clamp(34px,11vw,52px);line-height:.9;text-transform:uppercase;}
+  .tv-player{font-size:14px;color:var(--text);margin-top:12px;}
+  .tv-player b{color:var(--cyan);font-weight:600;}
+  .tv-meta{font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:6px;letter-spacing:.04em;}
+  .tv-badges{display:flex;gap:7px;margin-top:14px;flex-wrap:wrap;}
+  .tv-section{margin-top:28px;}
+  .tv-label{font-family:var(--mono);font-size:10px;letter-spacing:.24em;text-transform:uppercase;color:var(--muted);margin:0 0 13px;}
+  .tv-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+  .tv-stat{background:var(--ink-2);border:1px solid var(--line);border-radius:13px;padding:14px 10px;text-align:center;}
+  .tv-stat b{display:block;font-family:var(--display);font-size:28px;line-height:1;}
+  .tv-stat span{font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);display:block;margin-top:7px;}
+  .tv-form{display:flex;gap:6px;margin-top:14px;}
+  .tv-fp{width:27px;height:27px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:12px;font-weight:700;}
+  .tv-fp.W{background:color-mix(in srgb,var(--cyan) 18%,transparent);color:var(--cyan);border:1px solid color-mix(in srgb,var(--cyan) 40%,transparent);}
+  .tv-fp.D{background:rgba(245,194,75,.14);color:var(--gold);border:1px solid rgba(245,194,75,.4);}
+  .tv-fp.L{background:rgba(255,46,116,.12);color:var(--magenta);border:1px solid rgba(255,46,116,.34);}
+  .tv-matches{display:flex;flex-direction:column;gap:8px;}
+  .tv-match{display:flex;align-items:center;gap:12px;background:var(--ink-2);border:1px solid var(--line);border-radius:12px;padding:11px 14px;}
+  .tv-mstage{font-family:var(--mono);font-size:8.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);width:70px;flex:none;line-height:1.3;}
+  .tv-mopp{flex:1;min-width:0;display:flex;align-items:center;gap:9px;}
+  .tv-mopp img{width:20px;height:20px;object-fit:contain;flex:none;}
+  .tv-mopp .nm{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .tv-mscore{font-family:var(--mono);font-weight:700;font-size:15px;flex:none;color:var(--text);}
+  .tv-mscore.W{color:var(--cyan);} .tv-mscore.D{color:var(--gold);} .tv-mscore.L{color:var(--magenta);}
+  .tv-mtime{font-family:var(--mono);font-size:11px;color:var(--cyan);flex:none;opacity:.85;}
+  .tv-empty{color:var(--muted);font-size:13px;font-style:italic;}
 </style>
 </head>
 <body>
@@ -207,6 +241,7 @@
           <p class="note">All points double from the Round of 32 onwards. Most points wins.</p>
         </div>
       </div>
+      <p class="taphint">Tap a team to see its stats &amp; fixtures.</p>
       <ul class="cards" id="cards"></ul>
       <p class="satout" id="satOut"></p>
       <p class="liveline hide" id="liveLine"></p>
@@ -221,6 +256,27 @@
           <div class="msg" id="orgMsg2"></div>
         </div>
       </details>
+    </section>
+
+    <section id="team" class="hide">
+      <button class="tv-back" id="tvBack" type="button">&larr; Back to league</button>
+      <div class="tv-head">
+        <img class="tv-crest" id="tvCrest" alt="" />
+        <div>
+          <div class="tv-name" id="tvName"></div>
+          <div class="tv-player" id="tvPlayer"></div>
+          <div class="tv-meta" id="tvMeta"></div>
+        </div>
+      </div>
+      <div class="tv-badges" id="tvBadges"></div>
+      <div class="tv-section">
+        <p class="tv-label">Tournament record</p>
+        <div id="tvRecord"></div>
+      </div>
+      <div class="tv-section">
+        <p class="tv-label">Matches</p>
+        <div class="tv-matches" id="tvMatches"></div>
+      </div>
     </section>
 
     <div class="footer">Made by <span style="color:var(--cyan);font-weight:700;">Pally</span> &middot; World Cup 2026 sweepstake &middot; just for fun</div>
@@ -327,6 +383,7 @@ function renderResults(s){
     const li = document.createElement("li");
     li.className = "card" + (i === 0 ? " is-fav" : "") + (row.live === "out" && i !== 0 ? " is-out" : "");
     li.style.setProperty("--tier", TIER_COLOUR[row.tier] || "var(--grey)");
+    li.onclick = () => { location.hash = "team/" + encodeURIComponent(row.team); };
 
     const pos = document.createElement("div"); pos.className = "pos";
     const rk = document.createElement("span"); rk.textContent = i + 1; pos.appendChild(rk);
@@ -429,13 +486,110 @@ async function shareStanding(s){
   } catch(e){ /* user dismissed the share sheet */ }
 }
 
+let lastState = null;
+let teamOpen = false;
+
 function render(s){
+  lastState = s;
+  if (location.hash.indexOf("#team/") === 0) return;   // team page owns the screen
   if (s.drawn && s.results.length) renderResults(s);
   else renderLobby(s);
 }
 
 async function refresh(){
   try { render(await api("/api/state")); } catch(e){ /* keep last view */ }
+}
+
+function ordinal(n){ return n === 1 ? "1st" : n === 2 ? "2nd" : n === 3 ? "3rd" : n + "th"; }
+
+function route(){
+  const h = location.hash || "";
+  if (h.indexOf("#team/") === 0){
+    teamOpen = true;
+    $("lobby").classList.add("hide");
+    $("results").classList.add("hide");
+    $("team").classList.remove("hide");
+    window.scrollTo(0, 0);
+    renderTeam(decodeURIComponent(h.slice(6)));
+  } else {
+    const wasTeam = !$("team").classList.contains("hide");
+    teamOpen = false;
+    $("team").classList.add("hide");
+    if (wasTeam && lastState) render(lastState);
+  }
+}
+window.addEventListener("hashchange", route);
+
+async function renderTeam(name){
+  const row = (lastState && lastState.results) ? lastState.results.find(r => r.team === name) : null;
+  const started = lastState ? lastState.started : false;
+  $("tvName").textContent = name;
+
+  const badges = $("tvBadges"); badges.innerHTML = "";
+  if (row){
+    $("tvPlayer").innerHTML = "";
+    const who = document.createElement("b"); who.textContent = row.player; $("tvPlayer").appendChild(who);
+    $("tvPlayer").appendChild(document.createTextNode(started ? "  \u00b7  " + (row.points|0) + " pts" : "  \u00b7  drew this team"));
+    $("tvMeta").textContent = "Group " + row.group + " \u00b7 " + row.conf + (row.status ? " \u00b7 " + row.status : "");
+    const map = {in:["badge badge-in","Still in"], out:["badge badge-out","Out"], champion:["badge badge-champ","Champion"]};
+    const m = map[row.live];
+    if (m){ const b = document.createElement("span"); b.className = m[0]; b.textContent = m[1]; badges.appendChild(b); }
+    const pill = document.createElement("span"); pill.className = "tierpill"; pill.style.setProperty("--tier", TIER_COLOUR[row.tier] || "var(--grey)"); pill.textContent = row.tier; badges.appendChild(pill);
+  } else {
+    $("tvPlayer").textContent = ""; $("tvMeta").textContent = "";
+  }
+
+  const crest = $("tvCrest"); crest.style.display = "none";
+  $("tvRecord").innerHTML = "<p class='tv-empty'>Loading stats\u2026</p>";
+  $("tvMatches").innerHTML = "";
+
+  let d;
+  try { d = await api("/api/team/" + encodeURIComponent(name)); }
+  catch(e){ $("tvRecord").innerHTML = "<p class='tv-empty'>Couldn't load stats right now.</p>"; return; }
+  if (!teamOpen || decodeURIComponent((location.hash || "").slice(6)) !== name) return;   // navigated away
+
+  if (d.crest){ crest.onerror = () => { crest.style.display = "none"; }; crest.src = d.crest; crest.style.display = "block"; }
+
+  const r = d.record || {};
+  const rec = document.createElement("div");
+  const tiles = document.createElement("div"); tiles.className = "tv-stats";
+  [["Won", r.won], ["Drawn", r.drawn], ["Lost", r.lost]].forEach(pair => {
+    const t = document.createElement("div"); t.className = "tv-stat";
+    const b = document.createElement("b"); b.textContent = pair[1] || 0;
+    const sp = document.createElement("span"); sp.textContent = pair[0];
+    t.appendChild(b); t.appendChild(sp); tiles.appendChild(t);
+  });
+  rec.appendChild(tiles);
+  const posTxt = d.groupPos ? ("  \u00b7  " + ordinal(d.groupPos) + " in Group " + (d.group || "")) : "";
+  const summ = document.createElement("p"); summ.className = "tv-meta"; summ.style.marginTop = "14px";
+  summ.textContent = "Played " + (r.played || 0) + "  \u00b7  " + (r.gf || 0) + "\u2013" + (r.ga || 0) + " goals" + posTxt;
+  rec.appendChild(summ);
+  if (d.form && d.form.length){
+    const fl = document.createElement("div"); fl.className = "tv-form";
+    d.form.forEach(x => { const c = document.createElement("span"); c.className = "tv-fp " + x; c.textContent = x; fl.appendChild(c); });
+    rec.appendChild(fl);
+  }
+  $("tvRecord").innerHTML = ""; $("tvRecord").appendChild(rec);
+
+  const ml = $("tvMatches"); ml.innerHTML = "";
+  if (!d.matches || !d.matches.length){ ml.innerHTML = "<p class='tv-empty'>No matches played yet.</p>"; return; }
+  d.matches.forEach(m => {
+    const rw = document.createElement("div"); rw.className = "tv-match";
+    const st = document.createElement("div"); st.className = "tv-mstage"; st.textContent = m.stage; rw.appendChild(st);
+    const opp = document.createElement("div"); opp.className = "tv-mopp";
+    if (m.oppCrest){ const im = document.createElement("img"); im.src = m.oppCrest; im.alt = ""; im.onerror = () => { im.style.display = "none"; }; opp.appendChild(im); }
+    const nm = document.createElement("span"); nm.className = "nm"; nm.textContent = m.opp; opp.appendChild(nm);
+    rw.appendChild(opp);
+    if (m.finished){
+      const sc = document.createElement("div"); sc.className = "tv-mscore " + (m.result || ""); sc.textContent = m.gf + "\u2013" + m.ga; rw.appendChild(sc);
+    } else {
+      const tm = document.createElement("div"); tm.className = "tv-mtime";
+      if (m.status === "IN_PLAY" || m.status === "PAUSED"){ tm.textContent = "Live"; }
+      else { const dt = new Date(m.utc); tm.textContent = isNaN(dt.getTime()) ? "TBC" : dt.toLocaleString([], {weekday:"short", hour:"2-digit", minute:"2-digit"}); }
+      rw.appendChild(tm);
+    }
+    ml.appendChild(rw);
+  });
 }
 
 async function joinNow(){
@@ -499,9 +653,11 @@ $("nameInput").addEventListener("keydown", e => { if (e.key === "Enter") joinNow
 $("drawBtn").onclick = drawNow;
 $("resetBtn").onclick = () => resetNow("pinInput", "orgMsg");
 $("resetBtn2").onclick = () => resetNow("pinInput2", "orgMsg2");
+$("tvBack").onclick = () => { location.hash = ""; };
 
 refresh();
 setInterval(refresh, 3000);   // light polling so every phone stays in sync
+route();                      // handle a deep-linked #team/... on load
 </script>
 </body>
 </html>
