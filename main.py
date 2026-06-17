@@ -14,6 +14,7 @@ Environment variables (set these where you deploy):
   FOOTBALL_DATA_TOKEN  your football-data.org token (no token = no live scores)
   ORGANISER_PIN        the PIN that unlocks Draw/Reset (default: 1966)
 """
+import hashlib
 import json
 import os
 import random
@@ -324,11 +325,28 @@ def team_detail(team_name, matches):
             "gf": mg, "ga": og, "result": result, "finished": finished,
         })
 
-    # Group position: a simple table built from this group's finished matches.
+    # Crest lookup for every team that has appeared in the feed.
+    crest_by = {}
+    for m in matches:
+        for side in ("homeTeam", "awayTeam"):
+            s = m.get(side) or {}
+            nm = display_for(s.get("name", ""))
+            if nm and s.get("crest") and nm not in crest_by:
+                crest_by[nm] = s["crest"]
+    if not crest:
+        crest = crest_by.get(my, "")
+
+    # Group table: built from this group's finished matches. All teams in the group
+    # are shown (including any yet to play). Powers the position line and mini-table.
     group_pos = group_size = None
+    group_table = []
     if group_letter:
         gkey = "GROUP_" + group_letter
-        table = {}
+        tbl = {}
+
+        def blank(nm):
+            return {"team": nm, "p": 0, "w": 0, "d": 0, "l": 0, "gf": 0, "ga": 0, "pts": 0}
+
         for m in matches:
             if (m.get("group") or "") != gkey or m.get("status") not in FINISHED:
                 continue
@@ -339,24 +357,184 @@ def team_detail(team_name, matches):
             hn = display_for((m.get("homeTeam") or {}).get("name", "")) or "?"
             an = display_for((m.get("awayTeam") or {}).get("name", "")) or "?"
             for nm, gfor, gag in ((hn, h, a), (an, a, h)):
-                t = table.setdefault(nm, [0, 0, 0])      # points, gd, gf
-                t[1] += gfor - gag
-                t[2] += gfor
-                t[0] += 3 if gfor > gag else (1 if gfor == gag else 0)
-        group_teams = [t["team"] for t in TEAMS if t["group"] == group_letter]
-        group_size = len(group_teams) or None
-        if table:
-            ranked = sorted(table, key=lambda n: (table[n][0], table[n][1], table[n][2]), reverse=True)
-            if my in ranked:
-                group_pos = ranked.index(my) + 1
+                r = tbl.setdefault(nm, blank(nm))
+                r["p"] += 1
+                r["gf"] += gfor
+                r["ga"] += gag
+                if gfor > gag:
+                    r["w"] += 1
+                    r["pts"] += 3
+                elif gfor == gag:
+                    r["d"] += 1
+                    r["pts"] += 1
+                else:
+                    r["l"] += 1
+        for t in TEAMS:                          # include teams yet to kick off
+            if t["group"] == group_letter and t["team"] not in tbl:
+                tbl[t["team"]] = blank(t["team"])
+        group_size = len([t for t in TEAMS if t["group"] == group_letter]) or len(tbl) or None
+        ranked = sorted(tbl.values(), key=lambda r: (r["pts"], r["gf"] - r["ga"], r["gf"]), reverse=True)
+        for i, r in enumerate(ranked):
+            r["gd"] = r["gf"] - r["ga"]
+            r["pos"] = i + 1
+            r["crest"] = crest_by.get(r["team"], "")
+        group_table = ranked
+        group_pos = next((r["pos"] for r in ranked if r["team"] == my), None)
 
     return {
         "team": my, "crest": crest, "group": group_letter,
         "record": {"played": played, "won": won, "drawn": drawn, "lost": lost,
                    "gf": gf, "ga": ga, "gd": gf - ga},
-        "groupPos": group_pos, "groupSize": group_size,
+        "groupPos": group_pos, "groupSize": group_size, "groupTable": group_table,
         "form": form[-5:], "matches": mlist,
     }
+
+
+# ----------------------------------------------------------------------------
+# Banter feed (personalised, result-driven)
+# ----------------------------------------------------------------------------
+# Keyed by lowercased player name. Lines are picked by a stable hash of the
+# player + match date, so a given result always reads the same (no flip-flop on
+# poll) but different results / days vary. Pure in-jokes from the group - keep.
+PERSONAS = {
+    "arran": {
+        "win":  ["Lifelong fan since roughly kickoff.",
+                 "The bandwagon's got a new favourite and Arran's driving it."],
+        "loss": ["He's already scouting whoever's top to support next.",
+                 "Allegiance withdrawn, effective immediately."],
+        "draw": ["Arran's keeping his options open, as ever."],
+    },
+    "pally": {
+        "win":  ["Years of Arsenal pain and now he won't shut up.",
+                 "He's somehow crediting Arteta for this."],
+        "loss": ["Back to familiar Arsenal territory - hope, then heartbreak.",
+                 "An Arsenal fan handling a loss: well rehearsed."],
+        "draw": ["Very Arsenal - so nearly, but not quite."],
+    },
+    "amo": {
+        "win":  ["First bit of joy since United were last good.",
+                 "Amo almost smiled. Almost."],
+        "loss": ["Amo's not even flinching - United desensitised him years ago.",
+                 "He's seen worse every weekend, frankly."],
+        "draw": ["Amo shrugs. He's well used to mid."],
+    },
+    "vimz": {
+        "win":  ["That's another pint sorted.",
+                 "Celebrating the only way he knows - a cold one."],
+        "loss": ["He'll drown it in a pint. Villa trained him for this.",
+                 "Another beer, another sorrow drowned."],
+        "draw": ["A draw's worth a pint too, in fairness."],
+    },
+    "pete": {
+        "win":  ["Peetu celebrates with a lamb feast and zero showers.",
+                 "Peetu's buzzing - still not showering though."],
+        "loss": ["Peetu consoles himself with more lamb. Shower remains off the table.",
+                 "Gutted, but there's always lamb."],
+        "draw": ["Peetu shrugs and reaches for the lamb."],
+    },
+    "sana d": {
+        "win":  ["The undercover fed's cover holds another day.",
+                 "Nothing to see here - the fed got the job done."],
+        "loss": ["Even the fed couldn't pull strings for this one.",
+                 "Internal investigation pending."],
+        "draw": ["The fed neither confirms nor denies that result."],
+    },
+    "munny": {
+        "win":  ["A fruity little win for Munny.",
+                 "Munny's celebrating. Fruitily."],
+        "loss": ["Tough one - fruity scenes turned sour.",
+                 "Munny's gutted. We'll leave him to it."],
+        "draw": ["A fruity stalemate for Munny."],
+    },
+    "kyle": {
+        "win":  ["Another 'cultural trip' to Amsterdam incoming.",
+                 "Kyle's buzzing - and you know exactly why."],
+        "loss": ["Kyle's down, but Amsterdam always cheers him up.",
+                 "He'll cope. He has his ways."],
+        "draw": ["Kyle's very relaxed about it. Very."],
+    },
+    "bhav": {
+        "win":  ["A United fan remembering what winning feels like.",
+                 "Bhav's enjoying this rare sensation - a win."],
+        "loss": ["Bhav takes it with the calm of a seasoned United sufferer.",
+                 "Just another weekend for a United fan."],
+        "draw": ["Bhav's seen enough draws to not care."],
+    },
+    "gurpreet saini": {
+        "win":  ["Wala wala! Gurpreet's rolling a baseball bat to celebrate.",
+                 "Sparking up a celebratory baseball bat. Wala wala."],
+        "loss": ["Gurpreet's lighting a baseball bat to cope. Wala wala.",
+                 "Wala wala - rolling his sorrows away."],
+        "draw": ["Gurpreet shrugs, rolls another. Wala wala."],
+    },
+    "manni": {
+        "win":  ["Fruity celebrations all round for Manni.",
+                 "Manni and Munny, two fruity peas in a pod, both buzzing."],
+        "loss": ["Manni and Munny commiserating together, fruitily.",
+                 "A fruity disappointment for Manni."],
+        "draw": ["Manni's fine with a draw - fruity equilibrium."],
+    },
+}
+
+
+def _pick(pool, seed):
+    if not pool:
+        return ""
+    h = int(hashlib.md5(seed.encode("utf-8")).hexdigest(), 16)
+    return pool[h % len(pool)]
+
+
+def banter_line(player, team, opp, gf, ga, result, mdate):
+    gf = gf or 0
+    ga = ga or 0
+    margin = abs(gf - ga)
+    if result == "W":
+        verb = "thrashed" if margin >= 3 else ("beat" if margin >= 2 else "edged")
+        pol = "win"
+    elif result == "L":
+        verb = "got hammered by" if margin >= 3 else ("lost to" if margin >= 2 else "lost narrowly to")
+        pol = "loss"
+    else:
+        verb = "drew with"
+        pol = "draw"
+    fact = f"{player}'s {team} {verb} {opp} {gf}\u2013{ga}."
+    flav = _pick(PERSONAS.get(player.strip().lower(), {}).get(pol, []), player.lower() + "|" + mdate)
+    return (fact + " " + flav).strip()
+
+
+def build_feed(rows, matches):
+    """One banter line per player, for their most recent finished match, newest first."""
+    owner = {r["team"]: r["player"] for r in rows if r.get("player")}
+    out = []
+    for team, player in owner.items():
+        best = None
+        for m in matches:
+            if m.get("status") not in FINISHED:
+                continue
+            hn = display_for((m.get("homeTeam") or {}).get("name", ""))
+            an = display_for((m.get("awayTeam") or {}).get("name", ""))
+            if team not in (hn, an):
+                continue
+            ft = (m.get("score") or {}).get("fullTime") or {}
+            h, a = ft.get("home"), ft.get("away")
+            if h is None or a is None:
+                continue
+            mdate = m.get("utcDate", "")
+            if best and mdate <= best["mdate"]:
+                continue
+            if hn == team:
+                gf, ga, opp = h, a, an
+            else:
+                gf, ga, opp = a, h, hn
+            res = "W" if gf > ga else ("D" if gf == ga else "L")
+            best = {"mdate": mdate, "gf": gf, "ga": ga, "opp": opp, "res": res}
+        if best:
+            out.append((best["mdate"], {
+                "text": banter_line(player, team, best["opp"], best["gf"], best["ga"], best["res"], best["mdate"]),
+                "tone": {"W": "good", "L": "bad", "D": "meh"}[best["res"]],
+            }))
+    out.sort(key=lambda x: x[0], reverse=True)
+    return [item for _, item in out[:8]]
 
 
 # ----------------------------------------------------------------------------
@@ -470,6 +648,7 @@ def build_state():
         "results": results, "started": started,
         "liveUpdated": live["updated"], "liveError": live["error"],
         "totalTeams": len(TEAMS),
+        "feed": build_feed(results, _live.get("matches", [])) if started else [],
     }
 
 
