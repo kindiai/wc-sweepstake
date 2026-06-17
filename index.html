@@ -125,6 +125,16 @@
     li.card{opacity:1;transform:none;}
     button:active{transform:none;}
   }
+  .leaguebar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:14px 0 2px;flex-wrap:wrap;}
+  .sharebtn{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--cyan);background:color-mix(in srgb,var(--cyan) 12%,transparent);border:1px solid color-mix(in srgb,var(--cyan) 38%,transparent);border-radius:999px;padding:9px 15px;cursor:pointer;}
+  .sharebtn:active{transform:scale(.97);}
+  details.rules{font-family:var(--mono);font-size:11px;color:var(--muted);}
+  details.rules summary{cursor:pointer;letter-spacing:.06em;list-style:none;}
+  details.rules summary::-webkit-details-marker{display:none;}
+  details.rules summary::before{content:"\002b  ";opacity:.7;}
+  details.rules[open] summary::before{content:"\2212  ";}
+  details.rules p{margin:8px 0 0;line-height:1.55;color:var(--muted);max-width:330px;}
+  .nextfix{font-family:var(--mono);font-size:11px;color:var(--cyan);margin-top:4px;letter-spacing:.02em;opacity:.82;}
 </style>
 </head>
 <body>
@@ -174,6 +184,12 @@
       <div class="results-head">
         <div class="fav" id="favBox"></div>
       </div>
+      <div class="leaguebar">
+        <button id="shareBtn" class="sharebtn" type="button">Share my standing</button>
+        <details class="rules"><summary>How points work</summary>
+          <p>Each player scores from their team's games: goal +1, conceded -1, clean sheet +1, win +3, draw +1. Points double from the Round of 32. Most points wins.</p>
+        </details>
+      </div>
       <ul class="cards" id="cards"></ul>
       <p class="satout" id="satOut"></p>
       <p class="liveline hide" id="liveLine"></p>
@@ -191,6 +207,7 @@
     </section>
 
     <div class="footer">Made by <span style="color:var(--cyan);font-weight:700;">Pally</span> &middot; World Cup 2026 sweepstake &middot; just for fun</div>
+  </div>
 
 <script>
 const TIER_COLOUR = {
@@ -263,6 +280,7 @@ function renderResults(s){
   $("results").classList.remove("hide");
   const r = s.results;
   if (!r.length) return;
+  $("shareBtn").onclick = () => shareStanding(s);
 
   // headline: winner if decided, leader once started, otherwise pre-tournament favourite
   const top = r[0];
@@ -274,7 +292,7 @@ function renderResults(s){
   who.appendChild(em);
   let line;
   if (top.live === "champion") line = " \u00b7 " + top.team + " \u00b7 Champions!";
-  else if (s.started && top.stage) line = " \u00b7 " + top.team + " \u00b7 " + top.stage;
+  else if (s.started) line = " \u00b7 " + top.team + " \u00b7 " + (top.points|0) + " pts";
   else line = " drew " + top.team;
   who.appendChild(document.createTextNode(line));
   $("favBox").appendChild(tag); $("favBox").appendChild(who);
@@ -299,6 +317,17 @@ function renderResults(s){
       const lr = document.createElement("div"); lr.className = "lastres"; lr.textContent = row.last;
       mid.appendChild(lr);
     }
+    if (row.next && row.next.opp){
+      const nf = document.createElement("div"); nf.className = "nextfix";
+      if (row.next.live){
+        nf.textContent = "Live now vs " + row.next.opp;
+      } else {
+        const d = new Date(row.next.utc);
+        const when = isNaN(d.getTime()) ? "" : " \u00b7 " + d.toLocaleString([], {weekday:"short", hour:"2-digit", minute:"2-digit"});
+        nf.textContent = "Next: vs " + row.next.opp + when;
+      }
+      mid.appendChild(nf);
+    }
     if (!s.started && i === r.length - 1 && r.length > 1){
       const sp = document.createElement("div"); sp.className = "spoon"; sp.textContent = "Wooden spoon watch";
       mid.appendChild(sp);
@@ -312,8 +341,9 @@ function renderResults(s){
     }
     const pill = document.createElement("div"); pill.className = "tierpill"; pill.style.setProperty("--tier", TIER_COLOUR[row.tier] || "var(--grey)"); pill.textContent = row.tier;
     const str = document.createElement("div"); str.className = "str";
-    const strN = document.createElement("b"); strN.textContent = row.strength;
-    str.appendChild(strN); str.appendChild(document.createTextNode("strength"));
+    const strN = document.createElement("b");
+    strN.textContent = s.started ? (row.points|0) : row.strength;
+    str.appendChild(strN); str.appendChild(document.createTextNode(s.started ? "pts" : "strength"));
     right.appendChild(pill); right.appendChild(str);
 
     li.appendChild(pos); li.appendChild(mid); li.appendChild(right);
@@ -345,6 +375,26 @@ function renderResults(s){
     const orderLast = items.slice().reverse(); // bottom (weakest) -> top (favourite)
     orderLast.forEach((li, k) => setTimeout(() => li.classList.add("show"), 140 + k * 130));
   }
+}
+
+async function shareStanding(s){
+  let text = "";
+  if (s && s.results && s.results.length){
+    const i = myName ? s.results.findIndex(r => r.player.toLowerCase() === myName.toLowerCase()) : -1;
+    if (i !== -1 && s.started){
+      const p = i + 1;
+      const ord = p === 1 ? "1st" : p === 2 ? "2nd" : p === 3 ? "3rd" : p + "th";
+      text = "I'm " + ord + " of " + s.results.length + " in the World Cup sweepstake with "
+           + (s.results[i].points|0) + " pts (" + s.results[i].team + "). Catch me \u2192 " + location.href;
+    } else if (i !== -1){
+      text = "I'm in the World Cup sweepstake with " + s.results[i].team + " \u2192 " + location.href;
+    }
+  }
+  if (!text) text = "World Cup 2026 sweepstake \u2013 get in \u2192 " + location.href;
+  try {
+    if (navigator.share){ await navigator.share({ text: text }); }
+    else { await navigator.clipboard.writeText(text); alert("Copied \u2013 paste it into your group chat."); }
+  } catch(e){ /* user dismissed the share sheet */ }
 }
 
 function render(s){
