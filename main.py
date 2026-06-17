@@ -534,7 +534,7 @@ def build_feed(rows, matches):
                 "tone": {"W": "good", "L": "bad", "D": "meh"}[best["res"]],
             }))
     out.sort(key=lambda x: x[0], reverse=True)
-    return [item for _, item in out[:8]]
+    return [item for _, item in out]      # one per player; bounded by the field size
 
 
 # ----------------------------------------------------------------------------
