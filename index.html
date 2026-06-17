@@ -141,9 +141,9 @@
   .sharebtn:hover{background:color-mix(in srgb,var(--cyan) 18%,transparent);}
   .sharebtn:active{transform:scale(.98);}
   .btnrow{display:flex;gap:9px;flex-wrap:wrap;align-items:center;}
-  .momentsbtn{display:inline-flex;align-items:center;gap:7px;font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--text);background:var(--ink-2);border:1px solid var(--line);border-radius:999px;padding:10px 16px;cursor:pointer;}
-  .momentsbtn::after{content:"\2192";color:var(--muted);}
-  .momentsbtn:hover{border-color:var(--muted);}
+  .momentsbtn{display:inline-flex;align-items:center;gap:9px;font-family:var(--mono);font-size:13px;letter-spacing:.1em;text-transform:uppercase;font-weight:700;color:var(--ink);background:var(--cyan);border:1px solid var(--cyan);border-radius:999px;padding:13px 22px;cursor:pointer;}
+  .momentsbtn::after{content:"\2192";}
+  .momentsbtn:hover{filter:brightness(1.08);}
   .momentsbtn:active{transform:scale(.98);}
   .scoring{margin-top:16px;}
   .scoring .skey{font-family:var(--mono);font-size:10px;letter-spacing:.24em;text-transform:uppercase;color:var(--muted);margin:0 0 10px;}
@@ -261,8 +261,8 @@
       </div>
       <div class="leaguebar">
         <div class="btnrow">
-          <button id="shareBtn" class="sharebtn" type="button">Share my standing</button>
           <button id="momentsBtn" class="momentsbtn hide" type="button">Key moments</button>
+          <button id="shareBtn" class="sharebtn" type="button">Share my standing</button>
         </div>
         <div class="scoring">
           <p class="skey">How points work</p>
