@@ -233,7 +233,7 @@ def compute_live(matches):
 # ----------------------------------------------------------------------------
 # Live results cache
 # ----------------------------------------------------------------------------
-_live = {"at": 0.0, "data": {}, "started": False, "error": None, "fetched": False}
+_live = {"at": 0.0, "data": {}, "started": False, "error": None, "fetched": False, "matches": []}
 
 
 def get_live():
@@ -250,15 +250,113 @@ def get_live():
             _live["error"] = "api_error"
             _live["at"] = now            # back off; don't hammer the API on errors
         else:
-            payload = r.json()
-            data, started = compute_live(payload.get("matches", []))
+            matches = (r.json() or {}).get("matches", [])
+            data, started = compute_live(matches)
             _live.update({"data": data, "started": started, "error": None,
-                          "at": now, "fetched": True})
+                          "at": now, "fetched": True, "matches": matches})
     except Exception:
         _live["error"] = "unreachable"
         _live["at"] = now
     return {"data": _live["data"], "started": _live["started"],
             "updated": _live["at"] if _live["fetched"] else None, "error": _live["error"]}
+
+
+# ----------------------------------------------------------------------------
+# Per-team detail (for the team page)
+# ----------------------------------------------------------------------------
+def team_detail(team_name, matches):
+    """Build one team's record, group position, recent form and full match list
+    from the football-data.org matches we already cache. Pure function."""
+    my = team_name
+    tinfo = next((t for t in TEAMS if t["team"] == my), None)
+    group_letter = tinfo["group"] if tinfo else None
+
+    crest = ""
+    played = won = drawn = lost = gf = ga = 0
+    form = []
+    mlist = []
+
+    rows = []
+    for m in matches:
+        home = m.get("homeTeam") or {}
+        away = m.get("awayTeam") or {}
+        if display_for(home.get("name", "")) == my:
+            rows.append((m, home, away, "HOME_TEAM"))
+        elif display_for(away.get("name", "")) == my:
+            rows.append((m, away, home, "AWAY_TEAM"))
+    rows.sort(key=lambda r: r[0].get("utcDate", ""))
+
+    for m, me_side, opp_side, my_token in rows:
+        if not crest:
+            crest = me_side.get("crest", "") or ""
+        score = m.get("score") or {}
+        ft = score.get("fullTime") or {}
+        winner = score.get("winner")
+        if my_token == "HOME_TEAM":
+            mg, og = ft.get("home"), ft.get("away")
+        else:
+            mg, og = ft.get("away"), ft.get("home")
+        status = m.get("status", "")
+        rank = stage_rank(m.get("stage", ""))
+        finished = status in FINISHED and mg is not None and og is not None
+        result = None
+        if finished:
+            if winner == my_token:
+                result = "W"
+            elif winner == "DRAW":
+                result = "D"
+            elif winner in ("HOME_TEAM", "AWAY_TEAM"):
+                result = "L"
+            else:
+                result = "W" if mg > og else ("D" if mg == og else "L")
+            played += 1
+            gf += mg
+            ga += og
+            won += result == "W"
+            drawn += result == "D"
+            lost += result == "L"
+            form.append(result)
+        mlist.append({
+            "stage": STAGE_LABEL[min(rank, 7)],
+            "opp": display_for(opp_side.get("name", "")) or opp_side.get("name", "?"),
+            "oppCrest": opp_side.get("crest", "") or "",
+            "utc": m.get("utcDate", ""), "status": status,
+            "gf": mg, "ga": og, "result": result, "finished": finished,
+        })
+
+    # Group position: a simple table built from this group's finished matches.
+    group_pos = group_size = None
+    if group_letter:
+        gkey = "GROUP_" + group_letter
+        table = {}
+        for m in matches:
+            if (m.get("group") or "") != gkey or m.get("status") not in FINISHED:
+                continue
+            ft = (m.get("score") or {}).get("fullTime") or {}
+            h, a = ft.get("home"), ft.get("away")
+            if h is None or a is None:
+                continue
+            hn = display_for((m.get("homeTeam") or {}).get("name", "")) or "?"
+            an = display_for((m.get("awayTeam") or {}).get("name", "")) or "?"
+            for nm, gfor, gag in ((hn, h, a), (an, a, h)):
+                t = table.setdefault(nm, [0, 0, 0])      # points, gd, gf
+                t[1] += gfor - gag
+                t[2] += gfor
+                t[0] += 3 if gfor > gag else (1 if gfor == gag else 0)
+        group_teams = [t["team"] for t in TEAMS if t["group"] == group_letter]
+        group_size = len(group_teams) or None
+        if table:
+            ranked = sorted(table, key=lambda n: (table[n][0], table[n][1], table[n][2]), reverse=True)
+            if my in ranked:
+                group_pos = ranked.index(my) + 1
+
+    return {
+        "team": my, "crest": crest, "group": group_letter,
+        "record": {"played": played, "won": won, "drawn": drawn, "lost": lost,
+                   "gf": gf, "ga": ga, "gd": gf - ga},
+        "groupPos": group_pos, "groupSize": group_size,
+        "form": form[-5:], "matches": mlist,
+    }
 
 
 # ----------------------------------------------------------------------------
@@ -398,6 +496,15 @@ def index():
 @app.get("/api/state")
 def api_state():
     return build_state()
+
+
+@app.get("/api/team/{name}")
+def api_team(name: str):
+    get_live()                       # warm the match cache
+    detail = team_detail(name, _live.get("matches", []))
+    detail["started"] = _live.get("started", False)
+    detail["liveError"] = _live.get("error")
+    return detail
 
 
 @app.post("/api/join")
