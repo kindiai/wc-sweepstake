@@ -419,10 +419,10 @@ PERSONAS = {
         "draw": ["Amo shrugs. He's well used to mid."],
     },
     "vimz": {
-        "win":  ["That's another pint sorted.",
+        "win":  ["Ellesse jacket on, pint in hand - that's Vimz sorted.",
                  "Celebrating the only way he knows - a cold one."],
         "loss": ["He'll drown it in a pint. Villa trained him for this.",
-                 "Another beer, another sorrow drowned."],
+                 "Zipping up the Ellesse and reaching for a beer."],
         "draw": ["A draw's worth a pint too, in fairness."],
     },
     "pete": {
@@ -473,6 +473,13 @@ PERSONAS = {
         "loss": ["Manni and Munny commiserating together, fruitily.",
                  "A fruity disappointment for Manni."],
         "draw": ["Manni's fine with a draw - fruity equilibrium."],
+    },
+    "sunny": {
+        "win":  ["Arsenal's other half is buzzing - he and Pally will be insufferable now.",
+                 "A win to settle the edgy teacher's nerves. Briefly."],
+        "loss": ["The edgy teacher's nerves are shot. Pally's offering Arsenal solidarity.",
+                 "Sunny's wound up as ever - this won't have helped."],
+        "draw": ["A draw does nothing for Sunny's nerves. Edgy as ever."],
     },
 }
 
@@ -643,11 +650,13 @@ def build_state():
         for r in results:
             r["move"] = 0
 
+    assigned = {r["team"] for r in results}
+    free_teams = sorted(t["team"] for t in TEAMS if t["team"] not in assigned)
     return {
         "players": players, "count": len(players), "drawn": drawn,
         "results": results, "started": started,
         "liveUpdated": live["updated"], "liveError": live["error"],
-        "totalTeams": len(TEAMS),
+        "totalTeams": len(TEAMS), "freeTeams": free_teams,
         "feed": build_feed(results, _live.get("matches", [])) if started else [],
     }
 
@@ -665,6 +674,12 @@ class NameIn(BaseModel):
 
 class PinIn(BaseModel):
     pin: str = ""
+
+
+class AddIn(BaseModel):
+    pin: str = ""
+    name: str = ""
+    team: str = ""
 
 
 @app.get("/")
@@ -742,6 +757,42 @@ def api_draw(body: PinIn):
                 })
         results.sort(key=lambda r: -r["strength"])
         cur.execute("update state set drawn = true, results = %s where id = 1", (Json(results),))
+        con.commit()
+    return build_state()
+
+
+@app.post("/api/add_entrant")
+def api_add_entrant(body: AddIn):
+    if body.pin != ORGANISER_PIN:
+        raise HTTPException(403, "Wrong organiser PIN.")
+    name = (body.name or "").strip()
+    team_name = (body.team or "").strip()
+    if not name:
+        raise HTTPException(400, "Add a name.")
+    if len(name) > MAX_NAME:
+        raise HTTPException(400, "That name's a bit long - keep it under 40 characters.")
+    tinfo = next((t for t in TEAMS if t["team"].lower() == team_name.lower()), None)
+    if not tinfo:
+        raise HTTPException(400, "Pick a team from the list.")
+    with connect() as con, con.cursor() as cur:
+        drawn, results = read_state(cur)
+        if not drawn:
+            raise HTTPException(409, "Do the draw first, then add any latecomers.")
+        if any((r.get("team") or "").lower() == tinfo["team"].lower() for r in results):
+            raise HTTPException(409, "That team's already taken.")
+        if any((r.get("player") or "").lower() == name.lower() for r in results):
+            raise HTTPException(409, "Someone's already in with that name.")
+        try:
+            cur.execute("insert into players (name) values (%s)", (name,))
+        except psycopg.errors.UniqueViolation:
+            con.rollback()
+            raise HTTPException(409, "Someone's already in with that name.")
+        results.append({
+            "player": name, "team": tinfo["team"], "group": tinfo["group"],
+            "conf": tinfo["conf"], "rank": tinfo["rank"], "tier": tinfo["tier"],
+            "status": tinfo["status"], "strength": strength(tinfo["rank"]),
+        })
+        cur.execute("update state set results = %s where id = 1", (Json(results),))
         con.commit()
     return build_state()
 
