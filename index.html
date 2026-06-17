@@ -184,6 +184,27 @@
   .tv-mscore.W{color:var(--cyan);} .tv-mscore.D{color:var(--gold);} .tv-mscore.L{color:var(--magenta);}
   .tv-mtime{font-family:var(--mono);font-size:11px;color:var(--cyan);flex:none;opacity:.85;}
   .tv-empty{color:var(--muted);font-size:13px;font-style:italic;}
+
+  /* banter feed */
+  .feed{display:flex;flex-direction:column;gap:7px;margin:20px 0 4px;}
+  .feed-item{font-size:12.5px;line-height:1.45;color:var(--text);background:var(--ink-2);border:1px solid var(--line);border-left:3px solid var(--grey);border-radius:10px;padding:9px 13px;}
+  .feed-item.good{border-left-color:var(--cyan);}
+  .feed-item.bad{border-left-color:var(--magenta);}
+  .feed-item.meh{border-left-color:var(--gold);}
+  .feed-item b{font-weight:600;}
+
+  /* group mini-table */
+  .tv-gt{display:flex;flex-direction:column;gap:2px;}
+  .tv-gr{display:grid;grid-template-columns:20px 1fr 26px 36px 32px;align-items:center;gap:8px;padding:8px 11px;border-radius:9px;font-size:13px;}
+  .tv-gr.head{font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:2px 11px 6px;}
+  .tv-gr.me{background:var(--ink-2);border:1px solid var(--line);}
+  .tv-gr .gp{font-family:var(--mono);color:var(--muted);}
+  .tv-gr .gt{display:flex;align-items:center;gap:8px;min-width:0;}
+  .tv-gr .gt img{width:18px;height:18px;object-fit:contain;flex:none;}
+  .tv-gr .gt .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .tv-gr.me .gt .nm{color:var(--cyan);font-weight:600;}
+  .tv-gr .gn{font-family:var(--mono);text-align:center;color:var(--muted);}
+  .tv-gr .gpts{font-family:var(--mono);font-weight:700;text-align:center;}
 </style>
 </head>
 <body>
@@ -241,6 +262,7 @@
           <p class="note">All points double from the Round of 32 onwards. Most points wins.</p>
         </div>
       </div>
+      <div class="feed hide" id="feed"></div>
       <p class="taphint">Tap a team to see its stats &amp; fixtures.</p>
       <ul class="cards" id="cards"></ul>
       <p class="satout" id="satOut"></p>
@@ -272,6 +294,10 @@
       <div class="tv-section">
         <p class="tv-label">Tournament record</p>
         <div id="tvRecord"></div>
+      </div>
+      <div class="tv-section hide" id="tvGroupWrap">
+        <p class="tv-label" id="tvGroupLabel">Group</p>
+        <div id="tvGroup"></div>
       </div>
       <div class="tv-section">
         <p class="tv-label">Matches</p>
@@ -349,12 +375,33 @@ function renderLobby(s){
   }
 }
 
+function renderFeed(s){
+  const box = $("feed");
+  const items = (s && s.feed) ? s.feed : [];
+  if (!items.length){ box.classList.add("hide"); box.innerHTML = ""; return; }
+  box.innerHTML = "";
+  const h = document.createElement("p"); h.className = "skey"; h.textContent = "The banter"; h.style.marginBottom = "4px";
+  box.appendChild(h);
+  items.forEach(it => {
+    const d = document.createElement("div"); d.className = "feed-item " + (it.tone || "");
+    const t = it.text || "";
+    const cut = t.indexOf("'s ");
+    if (cut > 0){
+      const b = document.createElement("b"); b.textContent = t.slice(0, cut + 2);
+      d.appendChild(b); d.appendChild(document.createTextNode(t.slice(cut + 2)));
+    } else { d.textContent = t; }
+    box.appendChild(d);
+  });
+  box.classList.remove("hide");
+}
+
 function renderResults(s){
   $("lobby").classList.add("hide");
   $("results").classList.remove("hide");
   const r = s.results;
   if (!r.length) return;
   $("shareBtn").onclick = () => shareStanding(s);
+  renderFeed(s);
 
   $("heroSub").textContent = "Teams are drawn. Your team earns points as it plays - most points wins.";
   const stillIn = r.filter(x => x.live !== "out").length;
@@ -541,6 +588,7 @@ async function renderTeam(name){
 
   const crest = $("tvCrest"); crest.style.display = "none";
   $("tvRecord").innerHTML = "<p class='tv-empty'>Loading stats\u2026</p>";
+  $("tvGroupWrap").classList.add("hide");
   $("tvMatches").innerHTML = "";
 
   let d;
@@ -570,6 +618,34 @@ async function renderTeam(name){
     rec.appendChild(fl);
   }
   $("tvRecord").innerHTML = ""; $("tvRecord").appendChild(rec);
+
+  // group mini-table
+  const gw = $("tvGroupWrap"), gbox = $("tvGroup");
+  if (d.groupTable && d.groupTable.length){
+    $("tvGroupLabel").textContent = "Group " + (d.group || "");
+    gbox.className = "tv-gt"; gbox.innerHTML = "";
+    const head = document.createElement("div"); head.className = "tv-gr head";
+    ["#", "Team", "P", "GD", "Pts"].forEach((x, ix) => {
+      const c = document.createElement("span"); c.textContent = x;
+      if (ix >= 2) c.style.textAlign = "center";
+      head.appendChild(c);
+    });
+    gbox.appendChild(head);
+    d.groupTable.forEach(gr => {
+      const row = document.createElement("div"); row.className = "tv-gr" + (gr.team === name ? " me" : "");
+      const gp = document.createElement("span"); gp.className = "gp"; gp.textContent = gr.pos; row.appendChild(gp);
+      const gt = document.createElement("span"); gt.className = "gt";
+      if (gr.crest){ const im = document.createElement("img"); im.src = gr.crest; im.alt = ""; im.onerror = () => { im.style.display = "none"; }; gt.appendChild(im); }
+      const nm = document.createElement("span"); nm.className = "nm"; nm.textContent = gr.team; gt.appendChild(nm); row.appendChild(gt);
+      const gp2 = document.createElement("span"); gp2.className = "gn"; gp2.textContent = gr.p; row.appendChild(gp2);
+      const gd = document.createElement("span"); gd.className = "gn"; gd.textContent = (gr.gd > 0 ? "+" : "") + gr.gd; row.appendChild(gd);
+      const pts = document.createElement("span"); pts.className = "gpts"; pts.textContent = gr.pts; row.appendChild(pts);
+      gbox.appendChild(row);
+    });
+    gw.classList.remove("hide");
+  } else {
+    gw.classList.add("hide");
+  }
 
   const ml = $("tvMatches"); ml.innerHTML = "";
   if (!d.matches || !d.matches.length){ ml.innerHTML = "<p class='tv-empty'>No matches played yet.</p>"; return; }
