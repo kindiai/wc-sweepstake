@@ -48,6 +48,11 @@
   }
   input::placeholder{color:#5C6580;}
   input:focus{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(31,224,196,.22);}
+  select#addTeam{background:var(--ink-3);border:1px solid var(--line);color:var(--text);font-family:var(--body);font-size:16px;padding:13px 14px;border-radius:11px;outline:none;cursor:pointer;}
+  select#addTeam:focus{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(31,224,196,.22);}
+  .org-add{margin:2px 0 14px;}
+  .addrow{display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap;}
+  .addrow > *{flex:1 1 140px;}
   button{font-family:var(--body);cursor:pointer;border:none;border-radius:11px;font-weight:600;font-size:15px;padding:13px 18px;transition:transform .06s ease,filter .15s ease,background .15s ease;}
   button:active{transform:translateY(1px);}
   button:focus-visible{outline:3px solid var(--cyan);outline-offset:2px;}
@@ -281,6 +286,15 @@
           <div class="joinrow">
             <input type="password" id="pinInput2" placeholder="Organiser PIN" autocomplete="off" />
           </div>
+          <div class="org-add">
+            <p class="hint">Add a latecomer - pick a free team and name them.</p>
+            <div class="addrow">
+              <select id="addTeam"><option value="">Pick a free team&hellip;</option></select>
+              <input type="text" id="addName" placeholder="Their name" maxlength="40" autocomplete="off" />
+            </div>
+            <button class="btn-primary btn-block" id="addBtn">Add to the sweepstake</button>
+            <div class="msg" id="addMsg"></div>
+          </div>
           <div class="reset-line">Run it again? <button id="resetBtn2">Reset everything</button></div>
           <div class="msg" id="orgMsg2"></div>
         </div>
@@ -421,6 +435,7 @@ function renderResults(s){
   if (!r.length) return;
   $("shareBtn").onclick = () => shareStanding(s);
   renderFeed(s);
+  populateFreeTeams(s);
 
   $("heroSub").textContent = "Teams are drawn. Your team earns points as it plays - most points wins.";
   const stillIn = r.filter(x => x.live !== "out").length;
@@ -749,11 +764,40 @@ async function resetNow(pinId, msgId){
   } catch(e){ setMsg($(msgId), e.message, "err"); }
 }
 
+function populateFreeTeams(s){
+  const sel = $("addTeam");
+  if (!sel) return;
+  const free = (s && s.freeTeams) ? s.freeTeams : [];
+  const keep = sel.value;
+  sel.innerHTML = "";
+  const ph = document.createElement("option"); ph.value = ""; ph.textContent = "Pick a free team\u2026"; sel.appendChild(ph);
+  free.forEach(t => { const o = document.createElement("option"); o.value = t; o.textContent = t; sel.appendChild(o); });
+  if (keep && free.indexOf(keep) !== -1) sel.value = keep;
+}
+
+async function addEntrant(){
+  const pin = $("pinInput2").value.trim();
+  const team = $("addTeam").value;
+  const name = $("addName").value.trim();
+  if (!pin){ setMsg($("addMsg"), "Enter the organiser PIN.", "err"); return; }
+  if (!team){ setMsg($("addMsg"), "Pick a free team.", "err"); return; }
+  if (!name){ setMsg($("addMsg"), "Add a name.", "err"); return; }
+  $("addBtn").disabled = true;
+  try {
+    const s = await api("/api/add_entrant", { pin, name, team });
+    setMsg($("addMsg"), name + " is in with " + team + ".", "ok");
+    $("addName").value = "";
+    render(s);
+  } catch(e){ setMsg($("addMsg"), e.message, "err"); }
+  finally { $("addBtn").disabled = false; }
+}
+
 $("joinBtn").onclick = joinNow;
 $("nameInput").addEventListener("keydown", e => { if (e.key === "Enter") joinNow(); });
 $("drawBtn").onclick = drawNow;
 $("resetBtn").onclick = () => resetNow("pinInput", "orgMsg");
 $("resetBtn2").onclick = () => resetNow("pinInput2", "orgMsg2");
+$("addBtn").onclick = addEntrant;
 $("tvBack").onclick = () => { location.hash = ""; };
 $("momentsBtn").onclick = () => { location.hash = "moments"; };
 $("moBack").onclick = () => { location.hash = ""; };
