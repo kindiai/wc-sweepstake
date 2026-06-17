@@ -380,7 +380,7 @@ function renderFeed(s){
   const items = (s && s.feed) ? s.feed : [];
   if (!items.length){ box.classList.add("hide"); box.innerHTML = ""; return; }
   box.innerHTML = "";
-  const h = document.createElement("p"); h.className = "skey"; h.textContent = "The banter"; h.style.marginBottom = "4px";
+  const h = document.createElement("p"); h.className = "skey"; h.textContent = "Key moments"; h.style.marginBottom = "4px";
   box.appendChild(h);
   items.forEach(it => {
     const d = document.createElement("div"); d.className = "feed-item " + (it.tone || "");
