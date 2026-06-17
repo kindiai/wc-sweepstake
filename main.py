@@ -283,6 +283,7 @@ def ensure():
                     "drawn boolean not null default false, "
                     "results jsonb not null default '[]'::jsonb)")
         cur.execute("insert into state (id) values (1) on conflict (id) do nothing")
+        cur.execute("alter table state add column if not exists meta jsonb not null default '{}'::jsonb")
         con.commit()
 
 
@@ -305,10 +306,23 @@ def read_state(cur):
     return bool(row[0]), (row[1] or [])
 
 
+def read_meta(cur):
+    cur.execute("select meta from state where id = 1")
+    row = cur.fetchone()
+    return (row[0] or {}) if row else {}
+
+
+def write_meta(meta):
+    with connect() as con, con.cursor() as cur:
+        cur.execute("update state set meta = %s where id = 1", (Json(meta),))
+        con.commit()
+
+
 def build_state():
     with connect() as con, con.cursor() as cur:
         players = read_players(cur)
         drawn, results = read_state(cur)
+        meta = read_meta(cur)
 
     live = get_live()
     started = live["started"]
@@ -332,6 +346,26 @@ def build_state():
         results = sorted(results, key=key, reverse=True)
     else:
         results = sorted(results, key=lambda r: -r["strength"])
+
+    # Daily position movement (the arrows). Baseline = positions at the start of
+    # today (UTC). It's set on the first state-build of each new day and held until
+    # the next, so move = how far a player has climbed or slid since this morning.
+    if results and started:
+        today = time.strftime("%Y-%m-%d", time.gmtime())
+        cur_pos = {r["player"]: i + 1 for i, r in enumerate(results)}
+        if meta.get("day") != today:
+            meta = {"day": today, "ranks": cur_pos}
+            try:
+                write_meta(meta)
+            except Exception:
+                pass
+        baseline = meta.get("ranks", {})
+        for i, r in enumerate(results):
+            b = baseline.get(r["player"])
+            r["move"] = (b - (i + 1)) if isinstance(b, int) else 0
+    else:
+        for r in results:
+            r["move"] = 0
 
     return {
         "players": players, "count": len(players), "drawn": drawn,
